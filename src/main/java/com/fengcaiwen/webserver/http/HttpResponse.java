@@ -120,6 +120,8 @@ public class HttpResponse {
         if (!isKeepAlive || ConcurrentUtils.requestAndResponseCountMap.get(channel)[1] >= 10) {
             ConcurrentUtils.requestAndResponseCountMap.remove(channel);
             ConcurrentUtils.writeQueueMap.remove(channel);
+            ConcurrentUtils.requestAndResponseCountMap.remove(channel);
+            ConcurrentUtils.lastActiveTimeMap.remove(channel);
             channel.close();
         }
 

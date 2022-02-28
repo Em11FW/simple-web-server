@@ -233,6 +233,10 @@ public class NioHttpServer {
                                 && ConcurrentUtils.lastActiveTimeMap.get(key) + Configuration.KEEP_ALIVE_TIMEOUT < now) {
                             try {
                                 SocketChannel sc = (SocketChannel)key.channel();
+                                ConcurrentUtils.requestAndResponseCountMap.remove(sc);
+                                ConcurrentUtils.writeQueueMap.remove(sc);
+                                ConcurrentUtils.requestAndResponseCountMap.remove(sc);
+                                ConcurrentUtils.lastActiveTimeMap.remove(sc);
                                 sc.close();
                                 key.cancel();
                             } catch (IOException e) {
