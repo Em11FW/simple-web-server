@@ -70,9 +70,9 @@ class HttpRequestTest {
     }
 
     @Test
-    void parseHttpEmptyRequestLine() {
+    void parseHttpEmptyRequestLineOnlyCRLF() {
         try {
-            httpRequest.parse(generateEmptyRequestLine());;
+            httpRequest.parse(generateEmptyRequestLineOnlyCRLF());;
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST, e.getErrorCode());
@@ -177,7 +177,7 @@ class HttpRequestTest {
         return inputStream;
     }
 
-    private InputStream generateEmptyRequestLine() {
+    private InputStream generateEmptyRequestLineOnlyCRLF() {
         String rawData = "\r\n" + "\r\n";
         InputStream inputStream = new ByteArrayInputStream(
                 rawData.getBytes(

@@ -23,10 +23,11 @@ public class HttpResponse {
     private static final int BUFFER_SIZE = 65535;
 
     private String requestTarget;
-    private HttpStatusCode statusCode;
+    private HttpStatusCode requestStatusCode;
     private String contentType;
     private long contentLength;
     private boolean isKeepAlive;
+
     private int requestCount;
     private SocketChannel channel;
 
@@ -38,10 +39,16 @@ public class HttpResponse {
         this.requestTarget = requestTarget;
     }
 
-    public HttpResponse(String requestTarget, boolean isKeepAlive, int requestCount) {
-        this.requestTarget = requestTarget;
+    public HttpResponse(boolean isKeepAlive, int requestCount, HttpStatusCode requestStatusCode) {
         this.isKeepAlive = isKeepAlive;
         this.requestCount = requestCount;
+        this.requestStatusCode = requestStatusCode;
+    }
+
+    public HttpResponse(boolean isKeepAlive, int requestCount, String requestTarget) {
+        this.isKeepAlive = isKeepAlive;
+        this.requestCount = requestCount;
+        this.requestTarget = requestTarget;
     }
 
     public void generate(OutputStream outputStream) throws Exception {
@@ -66,7 +73,7 @@ public class HttpResponse {
 
         } else {
             LOGGER.info("return 404 not found");
-            byte[] headerBytes = createHeaderBytes("HTTP/1.0 404 Not Found", -1, null, isKeepAlive);
+            byte[] headerBytes = createHeaderBytes("HTTP/1.1 404 Not Found", -1, null, isKeepAlive);
             bos.write(headerBytes);
         }
         bos.flush();
@@ -75,29 +82,35 @@ public class HttpResponse {
     }
 
     public void generate() throws Exception {
-        File file = requestTarget.endsWith("/")?
-                new File(Configuration.ROOT + "index.html") :
-                new File(Configuration.ROOT + requestTarget);
         Queue<ByteBuffer> writeQueue = new LinkedList<>();
-        if (file.exists()) {
-            contentLength = file.length();
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-            contentType = URLConnection.guessContentTypeFromStream(bis);
-
-            byte[] headerBytes = createHeaderBytes("HTTP/1.1 200 OK", contentLength, contentType, isKeepAlive);
+        if (requestStatusCode != null) {
+            LOGGER.info("return {} {}", requestStatusCode.STATUS_CODE, requestStatusCode.MESSAGE);
+            byte[] headerBytes = createBytesFromString("HTTP/1.1 " + requestStatusCode.STATUS_CODE + " " + requestStatusCode.MESSAGE);
             writeQueue.add(ByteBuffer.wrap(headerBytes));
-
-            byte[] buf = new byte[BUFFER_SIZE];
-            int blockLen;
-            while ((blockLen = bis.read(buf)) != -1) {
-                writeQueue.add(ByteBuffer.wrap(buf, 0, blockLen));
-            }
-            bis.close();
-
         } else {
-            LOGGER.info("return 404 not found");
-            byte[] headerBytes = createHeaderBytes("HTTP/1.1 404 Not Found", -1, null, isKeepAlive);
-            writeQueue.add(ByteBuffer.wrap(headerBytes));
+            File file = requestTarget.endsWith("/") ?
+                    new File(Configuration.ROOT + "index.html") :
+                    new File(Configuration.ROOT + requestTarget);
+            if (file.exists()) {
+                contentLength = file.length();
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                contentType = URLConnection.guessContentTypeFromStream(bis);
+
+                byte[] headerBytes = createHeaderBytes("HTTP/1.1 200 OK", contentLength, contentType, isKeepAlive);
+                writeQueue.add(ByteBuffer.wrap(headerBytes));
+
+                byte[] buf = new byte[BUFFER_SIZE];
+                int blockLen;
+                while ((blockLen = bis.read(buf)) != -1) {
+                    writeQueue.add(ByteBuffer.wrap(buf, 0, blockLen));
+                }
+                bis.close();
+
+            } else {
+                LOGGER.info("return 404 not found");
+                byte[] headerBytes = createHeaderBytes("HTTP/1.1 404 Not Found", -1, null, isKeepAlive);
+                writeQueue.add(ByteBuffer.wrap(headerBytes));
+            }
         }
         ConcurrentUtils.writeQueueMap.get(channel).put(requestCount, writeQueue);
         LOGGER.info("response count:" + ConcurrentUtils.requestAndResponseCountMap.get(channel)[1]);
@@ -121,7 +134,6 @@ public class HttpResponse {
             ConcurrentUtils.requestAndResponseCountMap.remove(channel);
             ConcurrentUtils.writeQueueMap.remove(channel);
             ConcurrentUtils.requestAndResponseCountMap.remove(channel);
-            ConcurrentUtils.lastActiveTimeMap.remove(channel);
             channel.close();
         }
 
@@ -147,6 +159,16 @@ public class HttpResponse {
         return data;
     }
 
+    private byte[] createBytesFromString(String content) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(baos));
+        bw.write(content + "\r\n");;
+        bw.flush();
+        byte[] data = baos.toByteArray();
+        bw.close();
+        return data;
+    }
+
 
     public SocketChannel getChannel() {
         return channel;
@@ -159,6 +181,4 @@ public class HttpResponse {
     public boolean isKeepAlive() {
         return isKeepAlive;
     }
-
-
 }

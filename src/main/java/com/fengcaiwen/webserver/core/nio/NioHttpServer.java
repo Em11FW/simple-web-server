@@ -1,7 +1,9 @@
 package com.fengcaiwen.webserver.core.nio;
 
 import com.fengcaiwen.webserver.http.HttpRequest;
+import com.fengcaiwen.webserver.http.HttpRequestException;
 import com.fengcaiwen.webserver.http.HttpResponse;
+import com.fengcaiwen.webserver.http.HttpStatusCode;
 import com.fengcaiwen.webserver.util.Configuration;
 import com.fengcaiwen.webserver.util.ConcurrentUtils;
 import org.slf4j.Logger;
@@ -135,41 +137,30 @@ public class NioHttpServer {
                     LOGGER.info("Server received request. ");
                 }
                 if (!reqMsg.isEmpty()) {
-                    request.parse(new ByteArrayInputStream(reqMsg.getBytes()));
+                    try {
+                        request.parse(new ByteArrayInputStream(reqMsg.getBytes()));
+                    } catch (HttpRequestException e) {
+                        request.setBadRequestCode(e.getErrorCode());
+                    }
+                } else {
+                    request.setBadRequestCode(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST);
                 }
-            } catch (Exception e) {
-                try {
-                    sc.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
+
+                if (request.getMethod() != null) {
+                    LOGGER.info("get request headline: {} {}", request.getMethod().name(), request.getRequestTarget());
+                } else {
+                    LOGGER.info("get request error code: {} {}", request.getBadRequestCode().STATUS_CODE, request.getBadRequestCode().MESSAGE);
                 }
-                key.cancel();
-                LOGGER.error(e.getMessage());
-                return;
-            }
 
-            // result of bad requests.
-            // TODO should be handled in a lower level;
-            if (request.getMethod() == null) {
-                try {
-                    key.channel().close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                key.cancel();
-                return;
-            }
-            LOGGER.info("get request headline: {} {}", request.getMethod().name(), request.getRequestTarget());
+                ConcurrentUtils.readQueueMap.get(sc).add(new ConcurrentUtils.RequestWithId(request, requestCount));
 
-            ConcurrentUtils.readQueueMap.get(sc).add(new ConcurrentUtils.RequestWithId(request, requestCount));
-
-            // "re-invoke" previous canceled key.
-            try {
+                // "re-invoke" previous canceled key.
                 s.wakeup();
                 sc.register(s, SelectionKey.OP_WRITE, System.currentTimeMillis());
                 ConcurrentUtils.lastActiveTimeMap.put(key, System.currentTimeMillis());
-            } catch (ClosedChannelException e) {
-                e.printStackTrace();
+            } catch (ClosedChannelException ignored) {
+            } catch (Exception e) {
+                LOGGER.error(e.getMessage());
             }
         });
     }
@@ -193,10 +184,16 @@ public class NioHttpServer {
 
         if (request != null) {
             boolean isKeepAlive = true;
-            if (request.getRequestHeader().containsKey("Connection")){
+            if (request.getRequestHeader() != null && request.getRequestHeader().containsKey("Connection")){
                 isKeepAlive = !request.getRequestHeader().get("Connection").toLowerCase().equals("close");
             }
-            HttpResponse response = new HttpResponse(request.getRequestTarget(), isKeepAlive, requestCount);
+
+            HttpResponse response;
+            if (request.getRequestTarget() != null) {
+                response = new HttpResponse(isKeepAlive, requestCount, request.getRequestTarget());
+            } else {
+                response = new HttpResponse(isKeepAlive, requestCount, request.getBadRequestCode());
+            }
             response.setChannel(sc);
 
             //invoke another thread to read the request, the main thread would not be blocked.
@@ -205,7 +202,6 @@ public class NioHttpServer {
                     response.generate();
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
-                    return;
                 }
             });
 
@@ -213,6 +209,7 @@ public class NioHttpServer {
                 key.interestOps(SelectionKey.OP_READ);
                 ConcurrentUtils.lastActiveTimeMap.put(key, System.currentTimeMillis());
             } else {
+                ConcurrentUtils.lastActiveTimeMap.remove(key);
                 key.cancel();
             }
         }
@@ -236,7 +233,7 @@ public class NioHttpServer {
                                 ConcurrentUtils.requestAndResponseCountMap.remove(sc);
                                 ConcurrentUtils.writeQueueMap.remove(sc);
                                 ConcurrentUtils.requestAndResponseCountMap.remove(sc);
-                                ConcurrentUtils.lastActiveTimeMap.remove(sc);
+                                ConcurrentUtils.lastActiveTimeMap.remove(key);
                                 sc.close();
                                 key.cancel();
                             } catch (IOException e) {
