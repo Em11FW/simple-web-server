@@ -15,15 +15,10 @@ class HttpRequestTest {
 
     private HttpRequest httpRequest;
 
-    @BeforeAll
-    public void beforeClass(){
-        httpRequest = new HttpRequest();
-    }
-
     @Test
     void parseHttpRequest() {
         try {
-            httpRequest.parse(generateValidRequest());
+            httpRequest = new HttpRequest(generateValidRequest());
         } catch (HttpRequestException e) {
             fail(e);
         }
@@ -38,7 +33,7 @@ class HttpRequestTest {
     @Test
     void parseHttpBadRequestMethod() {
         try {
-            httpRequest.parse(generateBadRequestMethod());
+            httpRequest = new HttpRequest(generateBadRequestMethod());
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.SERVER_ERROR_501_NOT_IMPLEMENTED, e.getErrorCode());
@@ -48,7 +43,7 @@ class HttpRequestTest {
     @Test
     void parseHttpLongRequestMethod() {
         try {
-            httpRequest.parse(generateLongRequestMethod());;
+            httpRequest = new HttpRequest(generateLongRequestMethod());;
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.SERVER_ERROR_501_NOT_IMPLEMENTED, e.getErrorCode());
@@ -60,7 +55,7 @@ class HttpRequestTest {
     @Test
     void parseHttpBadRequestLineInvNumItems() {
         try {
-            httpRequest.parse(generateBadRequestLineInvNumItems());;
+            httpRequest = new HttpRequest(generateBadRequestLineInvNumItems());;
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST, e.getErrorCode());
@@ -72,7 +67,7 @@ class HttpRequestTest {
     @Test
     void parseHttpEmptyRequestLineOnlyCRLF() {
         try {
-            httpRequest.parse(generateEmptyRequestLineOnlyCRLF());;
+            httpRequest = new HttpRequest(generateEmptyRequestLineOnlyCRLF());;
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST, e.getErrorCode());
@@ -82,7 +77,7 @@ class HttpRequestTest {
     @Test
     void parseHttpBadRequestLineOnlyCRnoLF() {
         try {
-            httpRequest.parse(generateBadRequestLineOnlyCRnoLF());
+            httpRequest = new HttpRequest(generateBadRequestLineOnlyCRnoLF());
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST, e.getErrorCode());
@@ -92,7 +87,7 @@ class HttpRequestTest {
     @Test
     void parseBadHttpVersion() {
         try {
-            httpRequest.parse(generateBadHttpVersion());
+            httpRequest = new HttpRequest(generateBadHttpVersion());
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST, e.getErrorCode());
@@ -102,7 +97,7 @@ class HttpRequestTest {
     @Test
     void parseUnsupportedHttpVersion() {
         try {
-            httpRequest.parse(generateUnsupportedHttpVersion());
+            httpRequest = new HttpRequest(generateUnsupportedHttpVersion());
             fail();
         } catch (HttpRequestException e) {
             assertEquals(HttpStatusCode.SERVER_ERROR_505_HTTP_VERSION_NOT_SUPPORTED, e.getErrorCode());
@@ -112,7 +107,7 @@ class HttpRequestTest {
     @Test
     void parseSupportedHttpVersion() {
         try {
-            httpRequest.parse(generateSupportedHttpVersion());
+            httpRequest = new HttpRequest(generateSupportedHttpVersion());
             assertNotNull(httpRequest);
             assertEquals(HttpVersion.HTTP_1_1, httpRequest.getBestCompatibleHttpVersion());
             assertEquals("HTTP/1.2", httpRequest.getOriginalHttpVersion());

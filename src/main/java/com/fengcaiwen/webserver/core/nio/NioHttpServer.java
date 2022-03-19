@@ -122,8 +122,6 @@ public class NioHttpServer {
         //invoke another thread to read the request, the main thread would not be blocked.
         ConcurrentUtils.pool.submit(() -> {
 
-            HttpRequest request = new HttpRequest();
-
             //TODO parsing the buffer data directly to avoid unnecessary format converting
             try {
                 String reqMsg = "";
@@ -136,14 +134,15 @@ public class NioHttpServer {
                     reqMsg = new String(array);
                     LOGGER.info("Server received request. ");
                 }
+                HttpRequest request;
                 if (!reqMsg.isEmpty()) {
                     try {
-                        request.parse(new ByteArrayInputStream(reqMsg.getBytes()));
+                        request = new HttpRequest(new ByteArrayInputStream(reqMsg.getBytes()));
                     } catch (HttpRequestException e) {
-                        request.setBadRequestCode(e.getErrorCode());
+                        request = new HttpRequest(e.getErrorCode());
                     }
                 } else {
-                    request.setBadRequestCode(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST);
+                    request = new HttpRequest(HttpStatusCode.CLIENT_ERROR_400_BAD_REQUEST);
                 }
 
                 if (request.getMethod() != null) {
@@ -252,5 +251,6 @@ public class NioHttpServer {
             }
         }).start();
     }
+
 
 }

@@ -31,15 +31,20 @@ public class HttpRequest {
     private Map<String, String> requestHeader;
     private HttpStatusCode badRequestCode;
 
+    public HttpRequest(InputStream inputStream) throws HttpRequestException {
+        parse(inputStream);
+    }
+
+    public HttpRequest(HttpStatusCode errorCode) {
+        setBadRequestCode(errorCode);
+    }
+
     public HttpStatusCode getBadRequestCode() {
         return badRequestCode;
     }
 
-    public void setBadRequestCode(HttpStatusCode badRequestCode) {
+    private void setBadRequestCode(HttpStatusCode badRequestCode) {
         this.badRequestCode = badRequestCode;
-    }
-
-    public HttpRequest() {
     }
 
     public Map<String, String> getRequestHeader() {
@@ -91,7 +96,7 @@ public class HttpRequest {
         return bestCompatibleHttpVersion;
     }
 
-    public void parse(InputStream inputStream) throws HttpRequestException {
+    private void parse(InputStream inputStream) throws HttpRequestException {
         InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.US_ASCII);
         try {
             parseRequestLine(reader);

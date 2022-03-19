@@ -27,8 +27,7 @@ public class HttpWorker implements Runnable{
             inputStream = socket.getInputStream();
             outputStream = socket.getOutputStream();
 
-            HttpRequest request = new HttpRequest();
-            request.parse(inputStream);
+            HttpRequest request = new HttpRequest(inputStream);
             HttpResponse response = new HttpResponse(request.getRequestTarget());
             response.generate(outputStream);
 
